@@ -149,7 +149,7 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
         &ctx,
         MBEDTLS_CIPHER_ID_AES,
         privateCipherKey,
-        128
+        KEY_BITS
     );
 
     if (ret != 0) {
@@ -211,6 +211,7 @@ String ESPEncrypt::encryptString(const String &plainText)
         printHex("FULL PACKET (nonce+cipher+tag)", encrypted, enc_len);
     #endif
 
+    // Codifica hex para base64 (cipher)
     mbedtls_base64_encode(
         base64Out,
         sizeof(base64Out),
@@ -231,5 +232,104 @@ String ESPEncrypt::encryptString(const String &plainText)
 
 String ESPEncrypt::decryptString(const String &cipherText)
 {
-    // Ainda não implementado.
+    uint8_t decoded[512];
+    uint8_t output[MAX_DATA];
+
+    size_t decoded_len, out_len;
+
+    #if CRYPTO_DEBUG
+        Serial.println("=== DECRYPT INPUT (BASE64) ===");
+        Serial.println(cipherText);
+    #endif
+
+    // decodifica a string para binário
+    int ret = mbedtls_base64_decode(
+        decoded,
+        sizeof(decoded),
+        &decoded_len,
+        (const uint8_t*)cipherText.c_str(),
+        cipherText.length()
+    );
+
+    if (ret != 0) {
+        #if CRYPTO_DEBUG
+            Serial.println("Base64 decode error");
+        #endif
+        return "";
+    }
+
+    #if CRYPTO_DEBUG
+        printHex("DECODED PACKET", decoded, decoded_len);
+    #endif
+
+    // valida tamanho mínimo do pacote
+    if (decoded_len < NONCE_LEN + TAG_LEN) {
+        return "";
+    }
+
+    uint8_t *nonce_ptr = decoded;
+    uint8_t *cipher_ptr = decoded + NONCE_LEN;
+
+    size_t cipher_len = decoded_len - NONCE_LEN - TAG_LEN;
+
+    uint8_t *tag_ptr = decoded + NONCE_LEN + cipher_len;
+
+    #if CRYPTO_DEBUG
+        printHex("NONCE", nonce_ptr, NONCE_LEN);
+        printHex("CIPHERTEXT", cipher_ptr, cipher_len);
+        printHex("TAG", tag_ptr, TAG_LEN);
+    #endif
+
+    // Cria o contexto
+    mbedtls_gcm_context ctx;
+    mbedtls_gcm_init(&ctx);
+
+    // Insere chave criptográfica AES no contexto
+    ret = mbedtls_gcm_setkey(
+        &ctx,
+        MBEDTLS_CIPHER_ID_AES,
+        privateCipherKey,
+        KEY_BITS
+    );
+
+    if (ret != 0) {
+        mbedtls_gcm_free(&ctx); return "";
+    }
+
+    // decodifica mensagem (cipher) utilizando chave anexada
+    ret = mbedtls_gcm_auth_decrypt(
+        &ctx,
+        cipher_len,
+        nonce_ptr, NONCE_LEN,
+        NULL, 0,                    // AAD (não implementado ainda)
+        tag_ptr, TAG_LEN,
+        cipher_ptr,
+        output
+    );
+
+    mbedtls_gcm_free(&ctx);
+
+    if (ret != 0) {
+        #if CRYPTO_DEBUG
+            Serial.println("AUTH FAIL");
+        #endif
+        return "AUTH_FAIL";
+    }
+
+    out_len = cipher_len;
+
+    #if CRYPTO_DEBUG
+        printHex("PLAINTEXT", output, out_len);
+        Serial.println("DECRYPTED STRING:");
+        Serial.println(String((char*)output).substring(0, out_len));
+    #endif
+
+    // Retorna string em formato plaintext
+    return String((char*)output).substring(0, out_len);
+}
+
+
+bool ESPEncrypt::validation(const String &plainText, const String &cipherText)
+{
+    return plainText.equals( this->decryptString(cipherText) );
 }

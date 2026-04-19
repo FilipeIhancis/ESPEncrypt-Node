@@ -13,6 +13,7 @@
 #define NONCE_LEN       12          // Bytes do NONCE (IV)
 #define TAG_LEN         16          // Bytes da Tag Auth.
 #define MAX_DATA        256         // QTD Máxima Bytes AES
+#define KEY_BITS        128         // QTD de bits da Chave GCM
 #define CRYPTO_DEBUG    0           // Ativa debug
 
 extern Preferences prefs;           // Contador persistente ESP32
@@ -37,7 +38,6 @@ public:
     
     /** Destructor */
     ~ESPEncrypt();
-    
 
     /**
      *  @brief Realiza a criptografia de uma string com a chave privada
@@ -47,9 +47,9 @@ public:
     String encryptString(const String &plainText);
 
     /**
-     *  @brief
-     *  @param cipherText
-     *  @return 
+     *  @brief Realiza decodificação de uma string utilizando a chave AES
+     *  @param cipherText texto a ser decodificado (cipher text)
+     *  @return cipherText decodificado em formato plaintext
      */
     String decryptString(const String &cipherText);
 
@@ -65,6 +65,13 @@ public:
      *  @param hexKey String chave criptográfica AES
      */
     bool setAesKeyHex(const String &hexKey);
+
+    /**
+     *  @brief
+     *  @param plainText
+     *  @param cipherText
+     */
+    bool validation(const String &plainText, const String &cipherText);
 
     /**
      *  @brief Exibe no monitor serial o conteúdo (hexadecimal) armazenado em um vetor uint8_t

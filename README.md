@@ -17,17 +17,17 @@ A criptografia dos dados é realizada através dos recursos da [API MbedTLS](htt
 
 ### Node-RED
 
-#### Windows & Linux
+#### Windows & Linux (_node-red local_):
 
-1. Vá na configuração de Paletas: `Menu > Manage Palette`;
-2. Clique na seção `Install`;
+1. Vá na configuração de Paletas: **`Menu > Manage Palette`**;
+2. Clique na seção **Install**;
 3. Importe o arquivo `node-red-contrib-esp32encrypt-1.0.2.tgz`.
 
 <p align="center">
   <img src="imgs/upload-node.png" width="500"">
 </p>
 
-#### Linux (NPM)
+#### Terminal Linux (NPM):
 
 Caso esteja utilizando algum sistema Linux, o seguinte procedimento também funciona:
 
@@ -40,9 +40,9 @@ Caso esteja utilizando algum sistema Linux, o seguinte procedimento também func
 3. Para desinstalar o nó, utilize o comando: ```npm uninstall node-red-contrib-esp32encrypt```.
 
 
-## Utilização
 
-### Criptografia no ESP32 (Arduino IDE)
+
+## Utilização: Criptografia no ESP32
 
 Acesse o código de exemplo [disponível aqui](examples/Encrypt/Encrypt.ino).
 
@@ -65,11 +65,24 @@ Basta seguir o passo a passo:
     ```
 4. Publique no broker MQTT a String `cipher`.
 
-### Decodificação no Node-RED
+
+## Utilização: Descriptografia no ESP32
+
+1. Repita os passos (1) e (2) do exemplo anterior (inclusão da biblioteca, definição da chave e instância do objeto da biblioteca);
+
+2. Utilize o método `crypto.decryptString()` para descriptografar uma String criptografada (`cipher`):
+
+    ```Arduino
+    String cipher = "xAAAAElqH5ZOIKsfRnIdulCqMsDo72wgqcOSPGxWwMitufNZXYTP";
+    String plainText = crypto.decryptString(cipher);
+    ```
+
+
+## Utilização: Descriptografia no Node-RED
 
 1. Adicione o nó `lite-aes-gcm-decrypt` ao fluxo;
 2. Entre nas configurações do nó: por padrão, deixe `IV` em 12 bytes e `TAG` em 16 bytes. Configure a chave `KEY` **com a mesma chave do código `.ino`**;
-3. Ligue a saída do nó MQTT na entrada do nó de decodificação (`lite-aes-gcm-decrypt`);
+3. Ligue a saída do nó MQTT na entrada do nó de decodificação (`lite-aes-gcm-decrypt`)
 
 <p align="center">
   <img src="imgs/config-node-red.png" width="350"">

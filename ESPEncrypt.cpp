@@ -16,7 +16,7 @@ ESPEncrypt::~ESPEncrypt() {}
 // Inicia contador persitente
 Preferences prefs;
 
-// Inicia uma chave AES aleatória (NAO USAR ESSA)
+// Inicia uma chave AES aleatória (NAO USAR ESSA/apenas por padrão)
 uint8_t ESPEncrypt::privateCipherKey[KEY_LEN] = {
     0x31,0x32,0x33,0x34,
     0x35,0x36,0x37,0x38,
@@ -64,23 +64,19 @@ bool ESPEncrypt::setAesKeyHex(const String &hexKey)
         char high = hexKey[2 * i];
         char low  = hexKey[2 * i + 1];
         uint8_t highVal, lowVal;
-
         auto hexToNibble = [](char c) -> int {
             if (c >= '0' && c <= '9') return c - '0';
             if (c >= 'A' && c <= 'F') return c - 'A' + 10;
             if (c >= 'a' && c <= 'f') return c - 'a' + 10;
             return -1;
         };
-
         highVal = hexToNibble(high);
         lowVal  = hexToNibble(low);
-
         if (highVal < 0 || lowVal < 0)
             return false;
 
         privateCipherKey[i] = (highVal << 4) | lowVal;
     }
-
     return true;
 }
 

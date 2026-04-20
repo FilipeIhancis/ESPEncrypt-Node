@@ -1,22 +1,23 @@
 #ifndef ESPEncrypt_H
 #define ESPEncrypt_H
 
-// Inclusão de bibliotecas
+
+// Bibliotecas & APIs ***************************************
 #include <Arduino.h>
 #include <string.h>
-#include "mbedtls/gcm.h"            // Por enquanto a biblioteca lida apenas com GCM
+#include "mbedtls/gcm.h"
 #include "mbedtls/base64.h"
 #include <Preferences.h>
 
-// Variáveis globais
+
+// DEFINIÇÕES PADRÃO ********************************************************
 #define KEY_LEN         16          // Bytes da chave AES
 #define NONCE_LEN       12          // Bytes do NONCE (IV)
 #define TAG_LEN         16          // Bytes da Tag Auth.
 #define MAX_DATA        256         // QTD Máxima Bytes AES
 #define KEY_BITS        128         // QTD de bits da Chave GCM
 #define CRYPTO_DEBUG    0           // Ativa debug
-
-extern Preferences prefs;           // Contador persistente ESP32
+extern Preferences      prefs;      // Contador persistente ESP32
 
 
 /**
@@ -63,13 +64,15 @@ public:
     /**
      *  @brief Insere a chave criptográfica AES (adaptado para strings com conteúdo em formato hexadecimal)
      *  @param hexKey String chave criptográfica AES
+     *  @return True se a chave for inserida corretamente
      */
     bool setAesKeyHex(const String &hexKey);
 
     /**
-     *  @brief
-     *  @param plainText
-     *  @param cipherText
+     *  @brief Verifica se uma mensagem codificada tem o mesmo conteúdo de um texto (plaintext)
+     *  @param plainText Texto simples
+     *  @param cipherText Texto codificado a ser comparado
+     *  @return True se o conteúdo da mensagem criptografada for igual ao texto simples, falso se for diferente
      */
     bool validation(const String &plainText, const String &cipherText);
 
@@ -93,13 +96,13 @@ protected:
     static uint8_t  privateCipherKey[KEY_LEN], nonce[NONCE_LEN];
 
     /**
-     *  @brief Gera um NONCE baseado no contador persistente e números aleatórios
+     *  @brief Gera um NONCE (IV) baseado no contador persistente e números aleatórios
      */
     void generateNonce();
 
     /**
      *  @brief Obtém o contador atual (persistente)
-     *  @return Contador atual
+     *  @return Contador atual (pref)
      */
     uint32_t getCounter();
 

@@ -8,14 +8,18 @@ Por enquanto, o projeto se limita à criptografia AES-GCM (_Advanced Encryption 
 
 A criptografia dos dados é realizada através dos recursos da [API MbedTLS](https://github.com/espressif/esp-idf/blob/master/components/mbedtls/port/include/mbedtls/esp_config.h) da Espressif.
 
-## Instalação
+## Instalação da Biblioteca & Node
 
-### Arduino IDE
+### Biblioteca Arduino IDE
 
-1. Baixe o `.zip`
-2. Extraia o `.zip` no diretório de bibliotecas da Arduino IDE (Ex: `C:\Usuários\usuario\Documentos\Arduino\libraries`) OU inclua o `.zip` utilizando o menu `Sketch > Incluir Biblioteca > Adicionar Biblioteca .zip` da Arduino IDE.
+1. Baixe o `.zip` ([clique aqui](https://github.com/FilipeIhancis/ESPEncrypt-Node/zipball/main));
+2. Instale a biblioteca adicionando o `.zip` no menu `Sketch > Incluir Biblioteca > Adicionar Biblioteca .zip` da Arduino IDE (ou extraia o `.zip` no diretório de bibliotecas/libraries da Arduino IDE).
 
-### Node-RED
+<p align="center">
+  <img src="imgs/install-bib.png" width="550"">
+</p>
+
+### Decrypt p/ Node-RED
 
 #### Windows & Linux (_node-red local_):
 
@@ -80,16 +84,21 @@ Basta seguir o passo a passo:
 
 ## Utilização: Descriptografia no Node-RED
 
-1. Adicione o nó `lite-aes-gcm-decrypt` ao fluxo;
+1. Adicione o nó **`lite-aes-gcm-decrypt`** ao fluxo;
 2. Entre nas configurações do nó: por padrão, deixe `IV` em 12 bytes e `TAG` em 16 bytes. Configure a chave `KEY` **com a mesma chave do código `.ino`**;
 3. Ligue a saída do nó MQTT na entrada do nó de decodificação (`lite-aes-gcm-decrypt`)
 
 <p align="center">
-  <img src="imgs/config-node-red.png" width="350"">
+  <img src="imgs/config-node-red.png" width="470"">
 </p>
 
 4. Utilize o `msg.payload` (saída decodificada).
 
 <p align="center">
-  <img src="imgs/fluxo-node-red.png" width="520"">
+  <img src="imgs/fluxo-node-red.png" width="600"">
 </p>
+
+
+## Extra
+
+* O método **`validation(plainText, cipherText)`** retorna `true` caso o texto decodificado `plainText` seja igual ao texto codificado `cipherText`, e retorna `false` caso o texto codificado não seja igual ao texto descriptografado indicado.

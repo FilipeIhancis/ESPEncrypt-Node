@@ -12,7 +12,7 @@ A criptografia dos dados é realizada através dos recursos da [API MbedTLS](htt
 
 ### Biblioteca Arduino IDE
 
-1. Baixe o `.zip` ([clique aqui](https://github.com/FilipeIhancis/ESPEncrypt-Node/zipball/main));
+1. Baixe o `.zip` ([clique aqui (ESPEncrypt v1.0.0)](https://github.com/FilipeIhancis/ESPEncrypt-Node/archive/refs/tags/v1.0.0.zip));
 2. Instale a biblioteca adicionando o `.zip` no menu `Sketch > Incluir Biblioteca > Adicionar Biblioteca .zip` da Arduino IDE (ou extraia o `.zip` no diretório de bibliotecas/libraries da Arduino IDE).
 
 <p align="center">

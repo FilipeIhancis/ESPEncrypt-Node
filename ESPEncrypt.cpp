@@ -127,11 +127,14 @@ void ESPEncrypt::generateNonce()
 
 int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, size_t *out_len)
 {
+    // Inicia contexto
     mbedtls_gcm_context ctx;
     mbedtls_gcm_init(&ctx);
 
+    // Tag de autenticação
     uint8_t tag[TAG_LEN];
 
+    // Gera Nonce/IV a partir do contador persistente
     generateNonce();
 
     #if CRYPTO_DEBUG
@@ -147,30 +150,33 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
         privateCipherKey,
         KEY_BITS
     );
-
+    // Verifica se conseguiu inserir chave
     if (ret != 0) {
         mbedtls_gcm_free(&ctx);
+        Serial.println("[AES-ERROR] Não conseguiu definir chave AES.");
         return -1;
     }
 
     // Realiza a criptografia (output) e forma a tag através da API da espressif
     ret = mbedtls_gcm_crypt_and_tag(
-        &ctx,
-        MBEDTLS_GCM_ENCRYPT,
-        len,
-        nonce, NONCE_LEN,
-        NULL, 0,  // AAD (não implementado ainda)
-        plainText,
-        output + NONCE_LEN,
-        TAG_LEN,
-        tag
+        &ctx,                           // Contexto GCM
+        MBEDTLS_GCM_ENCRYPT,            // Modo criptografia
+        len,                            // Tamanho do plaintext
+        nonce, NONCE_LEN,               // Nonce, Tamanho do Nonce (IV)
+        NULL, 0,                        // AAD , Tamanho AAD (não implementado ainda)
+        plainText,                      // Conteúdo descriptografado
+        output + NONCE_LEN,             // Saída criptografada (buffer)
+        TAG_LEN,                        // Tamanho da tag
+        tag                             // Conteúdo tag
     );
-
+    // Verifica se conseguiu criptografar conteúdo
     if (ret != 0) {
         mbedtls_gcm_free(&ctx);
+        Serial.println("[AES-ERROR] Falha de criptografia");
         return -1;
     }
 
+    // Copia conteúdo nos buffers
     // Estrutura: [NONCE | CIPHERTEXT | TAG]
     memcpy(output, nonce, NONCE_LEN);
     memcpy(output + NONCE_LEN + len, tag, TAG_LEN);
@@ -181,8 +187,8 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
         printHex("TAG", tag, TAG_LEN);
     #endif
 
-    mbedtls_gcm_free(&ctx); // libera ctx para nova criptografia 
-    return 0;
+    mbedtls_gcm_free(&ctx);     // libera ctx para nova criptografia 
+    return 0;                   // Retorna sucesso
 }
 
 

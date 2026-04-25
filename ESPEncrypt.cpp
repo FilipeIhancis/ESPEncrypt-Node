@@ -11,9 +11,10 @@ ESPEncrypt::ESPEncrypt(const String &AES_KEY_HEX)
     }
 }
 
+// Destrutor da classe
 ESPEncrypt::~ESPEncrypt() {}
 
-// Inicia contador persitente
+// Contador persistente
 Preferences prefs;
 
 // Inicia uma chave AES aleatória (NAO USAR ESSA/apenas por padrão)
@@ -30,13 +31,16 @@ uint8_t ESPEncrypt::nonce[NONCE_LEN];
 
 void ESPEncrypt::setAesKeyAscii(const String &key)
 {
+    // Armazena x0 na chave privada interna AES
     memset(privateCipherKey, 0x00, KEY_LEN);
 
+    // Obtém tamanho da chave privada inserida pelo usuário
     int len = key.length();
 
-    // Caso tamanho seja inconsistente
+    // Caso tamanho seja inconsistente, considera tamanho máximo definida
     if (len > KEY_LEN)  len = KEY_LEN;
 
+    // Realiza cópia do conteúdo da chave inserida na variável interna
     memcpy(privateCipherKey, key.c_str(), len);
 }
 
@@ -97,6 +101,7 @@ void ESPEncrypt::printHex(const char* label, const uint8_t* data, size_t len)
 
 void ESPEncrypt::printNonce()
 {
+    // Realiza leitura do buffer interno Nonce (IV)
     for (size_t i = 0; i < NONCE_LEN; i++) {
         if (nonce[i] < 0x10) Serial.print("0");
         Serial.print(nonce[i], HEX);
@@ -106,9 +111,16 @@ void ESPEncrypt::printNonce()
 
 uint32_t ESPEncrypt::getCounter()
 {
+    // Inicia variável persistente
     prefs.begin("crypto", false);
+
+    // Obtém conteúdo em int
     uint32_t c = prefs.getUInt("ctr", 0);
+
+    // Atualiza contador (contador = contador + 1)
     prefs.putUInt("ctr", c + 1);
+
+    // Fecha variável persistente e retorna valor
     prefs.end();
     return c;
 }
@@ -116,26 +128,26 @@ uint32_t ESPEncrypt::getCounter()
 
 void ESPEncrypt::generateNonce()
 {
-    uint32_t counter = getCounter();
-    uint32_t rnd1 = esp_random();
-    uint32_t rnd2 = esp_random();
-    memcpy(&nonce[0],  &counter, 4);
-    memcpy(&nonce[4],  &rnd1, 4);
-    memcpy(&nonce[8],  &rnd2, 4);
+    uint32_t counter = getCounter();    // Obtém contador persistente
+    uint32_t rnd1 = esp_random();       // Obtém dados aleatórios hex
+    uint32_t rnd2 = esp_random();       // Obtém dados aleatórios hex
+    memcpy(&nonce[0],  &counter, 4);    // Armazena bytes no buffer IV
+    memcpy(&nonce[4],  &rnd1, 4);       // Armazena bytes no buffer IV
+    memcpy(&nonce[8],  &rnd2, 4);       // Armazena bytes no buffer IV
 }
 
 
 int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, size_t *out_len)
 {
-    // Inicia contexto
+    // Inicia contexto GCM
     mbedtls_gcm_context ctx;
     mbedtls_gcm_init(&ctx);
 
-    // Tag de autenticação
+    // Tag (buffer) de autenticação da criptografia
     uint8_t tag[TAG_LEN];
 
-    // Gera Nonce/IV a partir do contador persistente
-    generateNonce();
+    // Gera Nonce/IV a partir do contador persistente do ESP32
+    this->generateNonce();
 
     #if CRYPTO_DEBUG
         Serial.println("=== AES GCM ENCRYPT ===");
@@ -145,13 +157,14 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
 
     // Insere chave criptográfica AES no contexto
     int ret = mbedtls_gcm_setkey(
-        &ctx,
-        MBEDTLS_CIPHER_ID_AES,
-        privateCipherKey,
-        KEY_BITS
+        &ctx,                           // Contexto GCM (inicializado)
+        MBEDTLS_CIPHER_ID_AES,          // Bloco cipher 128-bits
+        privateCipherKey,               // Chave privada AES-GCM-128 bits
+        KEY_BITS                        // Bits da chave privada (AES-GCM)
     );
+    
     // Verifica se conseguiu inserir chave
-    if (ret != 0) {
+    if (ret != ENCRYPT_SUCCESS) {
         mbedtls_gcm_free(&ctx);
         Serial.println("[AES-ERROR] Não conseguiu definir chave AES.");
         return -1;
@@ -170,7 +183,7 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
         tag                             // Conteúdo tag
     );
     // Verifica se conseguiu criptografar conteúdo
-    if (ret != 0) {
+    if (ret != ENCRYPT_SUCCESS) {
         mbedtls_gcm_free(&ctx);
         Serial.println("[AES-ERROR] Falha de criptografia");
         return -1;
@@ -188,18 +201,20 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
     #endif
 
     mbedtls_gcm_free(&ctx);     // libera ctx para nova criptografia 
-    return 0;                   // Retorna sucesso
+    return ENCRYPT_SUCCESS;     // Retorna sucesso
 }
 
 
 String ESPEncrypt::encryptString(const String &plainText)
-{
+{   
+    // Buffers para criptografia
     uint8_t input[MAX_DATA];
     uint8_t encrypted[MAX_DATA + 32];
     uint8_t base64Out[512];
     size_t len = plainText.length();
     size_t enc_len, b64_len;
 
+    // Faz cópia do conteúdo do plaintext no buffer para manipulação
     memcpy(input, plainText.c_str(), len);
 
     #if CRYPTO_DEBUG
@@ -207,7 +222,11 @@ String ESPEncrypt::encryptString(const String &plainText)
         Serial.println(plainText);
     #endif
 
-    if (encrypt(input, len, encrypted, &enc_len) != 0)  return "";
+    // Realiza criptografia do conteúdo plaintext
+    if (encrypt(input, len, encrypted, &enc_len) != ENCRYPT_SUCCESS) {
+        Serial.println("[AES-ERROR] Falha de criptografia");
+        return "";
+    }
 
     #if CRYPTO_DEBUG
         printHex("FULL PACKET (nonce+cipher+tag)", encrypted, enc_len);
@@ -228,6 +247,7 @@ String ESPEncrypt::encryptString(const String &plainText)
         printHex("AES KEY", privateCipherKey, 16);
     #endif
 
+    // Retorna string contendo conteúdo base64
     return String((char*)base64Out).substring(0, b64_len);
 }
 
@@ -236,7 +256,6 @@ String ESPEncrypt::decryptString(const String &cipherText)
 {
     uint8_t decoded[512];
     uint8_t output[MAX_DATA];
-
     size_t decoded_len, out_len;
 
     #if CRYPTO_DEBUG
@@ -332,6 +351,7 @@ String ESPEncrypt::decryptString(const String &cipherText)
 
 
 bool ESPEncrypt::validation(const String &plainText, const String &cipherText)
-{
+{   
+    // Verifica se uma plaintext contém mesmo conteúdo de uma string criptografada
     return plainText.equals( this->decryptString(cipherText) );
 }

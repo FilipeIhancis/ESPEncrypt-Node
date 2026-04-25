@@ -1,7 +1,6 @@
 #ifndef ESPEncrypt_H
 #define ESPEncrypt_H
 
-
 // Bibliotecas & APIs ***************************************
 #include <Arduino.h>
 #include <string.h>
@@ -9,14 +8,14 @@
 #include "mbedtls/base64.h"
 #include <Preferences.h>
 
-
 // DEFINIÇÕES PADRÃO ********************************************************
-#define KEY_LEN         16          // Bytes da chave AES
-#define NONCE_LEN       12          // Bytes do NONCE (IV)
-#define TAG_LEN         16          // Bytes da Tag Auth.
-#define MAX_DATA        256         // QTD Máxima Bytes AES
-#define KEY_BITS        128         // QTD de bits da Chave GCM
-#define CRYPTO_DEBUG    0           // Ativa debug
+#define KEY_LEN             16      // Bytes da chave AES
+#define NONCE_LEN           12      // Bytes do NONCE (IV)
+#define TAG_LEN             16      // Bytes da Tag Auth.
+#define MAX_DATA            256     // QTD Máxima Bytes AES
+#define KEY_BITS            128     // QTD de bits da Chave GCM
+#define CRYPTO_DEBUG        0       // Ativa ou não debug interno da biblioteca
+#define ENCRYPT_SUCCESS     0       // Padrão de flag sucesso da espressif
 extern Preferences      prefs;      // Contador persistente ESP32
 
 

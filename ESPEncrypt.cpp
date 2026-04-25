@@ -1,5 +1,7 @@
 #include "ESPEncrypt.h"
 
+/**************************************************************************************************************************************/
+
 ESPEncrypt::ESPEncrypt() {}
 
 ESPEncrypt::ESPEncrypt(const String &AES_KEY_HEX) 
@@ -11,11 +13,9 @@ ESPEncrypt::ESPEncrypt(const String &AES_KEY_HEX)
     }
 }
 
-// Destrutor da classe
-ESPEncrypt::~ESPEncrypt() {}
+ESPEncrypt::~ESPEncrypt() {}        // Destrutor da classe
 
-// Contador persistente
-Preferences prefs;
+Preferences prefs;                  // Contador persistente
 
 // Inicia uma chave AES aleatória (NAO USAR ESSA/apenas por padrão)
 uint8_t ESPEncrypt::privateCipherKey[KEY_LEN] = {
@@ -28,7 +28,7 @@ uint8_t ESPEncrypt::privateCipherKey[KEY_LEN] = {
 // Inicia o vetor NONCE (IV)
 uint8_t ESPEncrypt::nonce[NONCE_LEN];
 
-
+/**************************************************************************************************************************************/
 void ESPEncrypt::setAesKeyAscii(const String &key)
 {
     // Armazena x0 na chave privada interna AES
@@ -43,26 +43,28 @@ void ESPEncrypt::setAesKeyAscii(const String &key)
     // Realiza cópia do conteúdo da chave inserida na variável interna
     memcpy(privateCipherKey, key.c_str(), len);
 }
-
-
+/**************************************************************************************************************************************/
 bool ESPEncrypt::setAesKeyHex(const String &hexKey)
 {
+    // Cria uma chave aleatória base contendo x0
     memset(privateCipherKey, 0x00, KEY_LEN);
 
+    // Obtém tamanho da chave AES inserida pelo usuário
     int hexLen = hexKey.length();
 
-    // Cada byte = 2 caracteres hex
+    // Verifica se o tamanho é par (cada byte = 2 caracteres hex)
     if (hexLen % 2 != 0) {
         Serial.println("[ERROR] INVALID AES KEY");
         return false;
     }
+    // Obtém bytes
     int byteLen = hexLen / 2;
 
-    // Validar tamanho AES
+    // Valida tamanho da chave inserida
     if (byteLen != 16 && byteLen != 24 && byteLen != 32)
         return false;
 
-    // Converter hex pra bytes
+    // Converte hexadecimal para bits
     for (int i = 0; i < byteLen; i++)
     {
         char high = hexKey[2 * i];
@@ -81,10 +83,10 @@ bool ESPEncrypt::setAesKeyHex(const String &hexKey)
 
         privateCipherKey[i] = (highVal << 4) | lowVal;
     }
+    // Chave inserida com sucesso:
     return true;
 }
-
-
+/**************************************************************************************************************************************/
 void ESPEncrypt::printHex(const char* label, const uint8_t* data, size_t len)
 {
     #if CRYPTO_DEBUG
@@ -97,8 +99,7 @@ void ESPEncrypt::printHex(const char* label, const uint8_t* data, size_t len)
         Serial.println("]");
     #endif
 }
-
-
+/**************************************************************************************************************************************/
 void ESPEncrypt::printNonce()
 {
     // Realiza leitura do buffer interno Nonce (IV)
@@ -107,8 +108,7 @@ void ESPEncrypt::printNonce()
         Serial.print(nonce[i], HEX);
     }
 }
-
-
+/**************************************************************************************************************************************/
 uint32_t ESPEncrypt::getCounter()
 {
     // Inicia variável persistente
@@ -124,8 +124,7 @@ uint32_t ESPEncrypt::getCounter()
     prefs.end();
     return c;
 }
-
-
+/**************************************************************************************************************************************/
 void ESPEncrypt::generateNonce()
 {
     uint32_t counter = getCounter();    // Obtém contador persistente
@@ -135,64 +134,112 @@ void ESPEncrypt::generateNonce()
     memcpy(&nonce[4],  &rnd1, 4);       // Armazena bytes no buffer IV
     memcpy(&nonce[8],  &rnd2, 4);       // Armazena bytes no buffer IV
 }
-
-
+/**************************************************************************************************************************************/
 int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, size_t *out_len)
 {
-    // Inicia contexto GCM
+    // Inicia contexto AES-GCM
     mbedtls_gcm_context ctx;
     mbedtls_gcm_init(&ctx);
 
-    // Tag (buffer) de autenticação da criptografia
+    // Inicia buffer da tag de finalização
     uint8_t tag[TAG_LEN];
 
-    // Gera Nonce/IV a partir do contador persistente do ESP32
+    // Gera um Nonce IV único com base na variável persistente (contador)
     this->generateNonce();
 
     #if CRYPTO_DEBUG
-        Serial.println("=== AES GCM ENCRYPT ===");
+        Serial.println("=== AES GCM ENCRYPT (ESP32 STREAM) ===");
         printHex("PLAINTEXT", plainText, len);
         printHex("NONCE", nonce, NONCE_LEN);
     #endif
 
-    // Insere chave criptográfica AES no contexto
+    // Insere a chave privada do usuário no contexto GCM
     int ret = mbedtls_gcm_setkey(
-        &ctx,                           // Contexto GCM (inicializado)
-        MBEDTLS_CIPHER_ID_AES,          // Bloco cipher 128-bits
-        privateCipherKey,               // Chave privada AES-GCM-128 bits
-        KEY_BITS                        // Bits da chave privada (AES-GCM)
+        &ctx,                       // Contexto GCM
+        MBEDTLS_CIPHER_ID_AES,      // Define lgoritmo de criptografia
+        privateCipherKey,           // Chave privada AES
+        KEY_BITS                    // Bits definido da chave (tamanho da chave)
     );
-    
-    // Verifica se conseguiu inserir chave
+
+    // Verifica se conseguiu inserir a chave
     if (ret != ENCRYPT_SUCCESS) {
         mbedtls_gcm_free(&ctx);
-        Serial.println("[AES-ERROR] Não conseguiu definir chave AES.");
+        Serial.println("[AES-ERROR] setkey falhou");
         return -1;
     }
 
-    // Realiza a criptografia (output) e forma a tag através da API da espressif
-    ret = mbedtls_gcm_crypt_and_tag(
-        &ctx,                           // Contexto GCM
-        MBEDTLS_GCM_ENCRYPT,            // Modo criptografia
-        len,                            // Tamanho do plaintext
-        nonce, NONCE_LEN,               // Nonce, Tamanho do Nonce (IV)
-        NULL, 0,                        // AAD , Tamanho AAD (não implementado ainda)
-        plainText,                      // Conteúdo descriptografado
-        output + NONCE_LEN,             // Saída criptografada (buffer)
-        TAG_LEN,                        // Tamanho da tag
-        tag                             // Conteúdo tag
+    // Inicia o stream (fluxo de criptografia)
+    ret = mbedtls_gcm_starts(
+        &ctx,                   // Contexto GCM
+        MBEDTLS_GCM_ENCRYPT,    // Define como criptografia GCM
+        nonce,                  // Nonce (IV) único
+        NONCE_LEN               // Tamanho do IV
     );
-    // Verifica se conseguiu criptografar conteúdo
+
+    // Verifica se conseguiu iniciar o processo de criptografia
     if (ret != ENCRYPT_SUCCESS) {
         mbedtls_gcm_free(&ctx);
-        Serial.println("[AES-ERROR] Falha de criptografia");
+        Serial.println("[AES-ERROR] starts falhou");
         return -1;
     }
 
-    // Copia conteúdo nos buffers
-    // Estrutura: [NONCE | CIPHERTEXT | TAG]
+    // Inicialmente, copia o Nonce (IV) para o início da saída (seguindo estrutura do payload)
     memcpy(output, nonce, NONCE_LEN);
+
+    // Realiza criptografia em chunks de MAX_DATA bytes cada ------------------------------
+
+    size_t offset = 0;                  // Variável de controle
+    const size_t CHUNK = MAX_DATA;      // Tamanho do chunk por vez
+
+    while (offset < len) {
+
+        // Obtém tamanho do chunk atual:
+        size_t chunk_len = (len - offset > CHUNK) ? CHUNK : (len - offset);
+        size_t out_chunk_len = 0;
+
+        ret = mbedtls_gcm_update(
+            &ctx,                              // Contexto GCM
+            plainText + offset,                // input 
+            chunk_len,                         // tamanho do input
+            output + NONCE_LEN + offset,       // saída
+            chunk_len,                         // tamanho do buffer de saída
+            &out_chunk_len                     // criptografia do chunk
+        );
+
+        // Verifica se realizou update da criptografia em buffer corretamente e verifica se tamanhos são compatíveis
+        if (ret != ENCRYPT_SUCCESS || out_chunk_len != chunk_len) {
+            mbedtls_gcm_free(&ctx);
+            Serial.println("[AES-ERROR] update falhou");
+            return -1;
+        }
+        // Próximo chunk
+        offset += chunk_len;
+    }
+
+    size_t final_len = 0;
+
+    // Finaliza operação de criptografia AES
+    // Finalização gera a tag de autenticação da criptografia
+    ret = mbedtls_gcm_finish(
+        &ctx,                       // Contexto GCM
+        NULL,                       // GCM não gera saída final
+        0,                          // --
+        &final_len,                 // Tamanho da saída (será atualizada)
+        tag,                        // Variável tag (buffer)
+        TAG_LEN                     // Tamanho fixo da tag
+    );
+
+    // Verifica se conseguiu finalizar a criar tag de autenticação
+    if (ret != ENCRYPT_SUCCESS) {
+        mbedtls_gcm_free(&ctx);
+        Serial.println("[AES-ERROR] finish falhou");
+        return -1;
+    }
+
+    // Adiciona tag na estrutura do pacote cipher
     memcpy(output + NONCE_LEN + len, tag, TAG_LEN);
+
+    // Tamanho da saída (cipher)
     *out_len = NONCE_LEN + len + TAG_LEN;
 
     #if CRYPTO_DEBUG
@@ -200,82 +247,111 @@ int ESPEncrypt::encrypt(const uint8_t *plainText, size_t len, uint8_t *output, s
         printHex("TAG", tag, TAG_LEN);
     #endif
 
-    mbedtls_gcm_free(&ctx);     // libera ctx para nova criptografia 
-    return ENCRYPT_SUCCESS;     // Retorna sucesso
+    mbedtls_gcm_free(&ctx);
+    return ENCRYPT_SUCCESS;
 }
-
-
+/**************************************************************************************************************************************/
 String ESPEncrypt::encryptString(const String &plainText)
 {   
-    // Buffers para criptografia
-    uint8_t input[MAX_DATA];
-    uint8_t encrypted[MAX_DATA + 32];
-    uint8_t base64Out[512];
+    // Obtém tamanho da string plaintext
     size_t len = plainText.length();
-    size_t enc_len, b64_len;
 
-    // Faz cópia do conteúdo do plaintext no buffer para manipulação
+    // Aloca memória dinamicamente para os vetores de saída (cipher) e entrada (para os chunks)
+    uint8_t *input = (uint8_t*) malloc(len);
+    uint8_t *encrypted = (uint8_t*) malloc(len + NONCE_LEN + TAG_LEN);
+
+    // Base64 de saída (precisa de ~4/3 do tamanho)
+    size_t b64_size = ((len + NONCE_LEN + TAG_LEN) * 4 / 3) + 16;
+    uint8_t *base64Out = (uint8_t*) malloc(b64_size);
+
+    // Verifica se conseguiu realizar malloc
+    if (!input || !encrypted || !base64Out) {
+        Serial.println("[AES-ERROR] malloc falhou");
+        free(input); free(encrypted); free(base64Out);
+        return "";
+    }
+
+    // Copia conteúdo do plaintext para buffer de entrada input do passo de cript.
     memcpy(input, plainText.c_str(), len);
+
+    // Tamanho (inicial) dos vetores de saída base64 e cript
+    size_t enc_len = 0;
+    size_t b64_len = 0;
 
     #if CRYPTO_DEBUG
         Serial.println("=== INPUT STRING ===");
         Serial.println(plainText);
     #endif
 
-    // Realiza criptografia do conteúdo plaintext
+    // Realiza criptografia AES-GCM da string
     if (encrypt(input, len, encrypted, &enc_len) != ENCRYPT_SUCCESS) {
-        Serial.println("[AES-ERROR] Falha de criptografia");
+        Serial.println("[AES-ERROR] Falha encrypt()");
+        free(input); free(encrypted); free(base64Out);
         return "";
     }
 
-    #if CRYPTO_DEBUG
-        printHex("FULL PACKET (nonce+cipher+tag)", encrypted, enc_len);
-    #endif
-
-    // Codifica hex para base64 (cipher)
+    // Codifica resultado para base64
     mbedtls_base64_encode(
-        base64Out,
-        sizeof(base64Out),
-        &b64_len,
-        encrypted,
-        enc_len
+        base64Out,              // Buffer de destino
+        b64_size,               // Tamanho do buffer de destino
+        &b64_len,               // Número de bytes a escrever
+        encrypted,              // Buffer de entrada (criptografado hexadecimal)
+        enc_len                 // Tamanho do buffer de entrada
     );
 
+    // Obtém resultado em formato string/base64
+    String result = String((char*)base64Out).substring(0, b64_len);
+
     #if CRYPTO_DEBUG
-        Serial.println("BASE64 OUTPUT:");
-        Serial.println((char*)base64Out);
-        printHex("AES KEY", privateCipherKey, 16);
+        Serial.println("BASE64:");
+        Serial.println(result);
     #endif
 
-    // Retorna string contendo conteúdo base64
-    return String((char*)base64Out).substring(0, b64_len);
+    // Libera memória
+    free(input); free(encrypted); free(base64Out);
+
+    // Retorna resultado
+    return result;
 }
-
-
+/**********************************************************************************************************/
 String ESPEncrypt::decryptString(const String &cipherText)
 {
-    uint8_t decoded[512];
-    uint8_t output[MAX_DATA];
-    size_t decoded_len, out_len;
+    // Obtém tamanho do cipher (mensagem decodificada)
+    size_t input_len = cipherText.length();
+
+    // Calcula tamanho máximo da saída decodificada para não alocar fora de faixa (economiza memória)
+    size_t decoded_max = (input_len * 3) / 4 + 4;
+
+    // Cria buffer de saída decodificada com tamanho máximo da mensagem decodificada
+    uint8_t *decoded = (uint8_t*) malloc(decoded_max);
+
+    // Verifica se realizou malloc corretamente
+    if (!decoded) {
+        Serial.println("[AES-ERROR] malloc decoded falhou");
+        return "";
+    }
+
+    // Tamanho da mensagem decodificada (será avaliado através dos chunks)
+    size_t decoded_len = 0;
 
     #if CRYPTO_DEBUG
         Serial.println("=== DECRYPT INPUT (BASE64) ===");
         Serial.println(cipherText);
     #endif
 
-    // decodifica a string para binário
+    // Decodifica base64 
     int ret = mbedtls_base64_decode(
-        decoded,
-        sizeof(decoded),
-        &decoded_len,
-        (const uint8_t*)cipherText.c_str(),
-        cipherText.length()
+        decoded,                                    // Buffer de destino
+        decoded_max,                                // Tamanho do buffer de destino (maximo)
+        &decoded_len,                               // Número de bytes escritos (será atualizado)
+        (const uint8_t*)cipherText.c_str(),         // Buffer do cipher (mensagem criptografada)
+        input_len                                   // Tamanho da entrada a ser decodificada
     );
 
-    if (ret != 0) {
-        #if CRYPTO_DEBUG
-            Serial.println("Base64 decode error");
-        #endif
+    // Verifica se conseguiu decodificar base64 corretamente
+    if (ret != ENCRYPT_SUCCESS) {
+        free(decoded);
+        Serial.println("[AES-ERROR] base64 decode falhou");
         return "";
     }
 
@@ -283,17 +359,26 @@ String ESPEncrypt::decryptString(const String &cipherText)
         printHex("DECODED PACKET", decoded, decoded_len);
     #endif
 
-    // valida tamanho mínimo do pacote
+    // Verifica se tamanho é válido
     if (decoded_len < NONCE_LEN + TAG_LEN) {
+        free(decoded);
         return "";
     }
 
-    uint8_t *nonce_ptr = decoded;
+    // Cria varíaveis de controle
+    uint8_t *nonce_ptr  = decoded;
     uint8_t *cipher_ptr = decoded + NONCE_LEN;
+    size_t cipher_len   = decoded_len - NONCE_LEN - TAG_LEN;
+    uint8_t *tag_ptr    = decoded + NONCE_LEN + cipher_len;
 
-    size_t cipher_len = decoded_len - NONCE_LEN - TAG_LEN;
+    // Cria buffer dinâmico para saída bom base na cipher
+    uint8_t *output = (uint8_t*) malloc(cipher_len);
 
-    uint8_t *tag_ptr = decoded + NONCE_LEN + cipher_len;
+    if (!output) {
+        free(decoded);
+        Serial.println("[AES-ERROR] malloc output falhou");
+        return "";
+    }
 
     #if CRYPTO_DEBUG
         printHex("NONCE", nonce_ptr, NONCE_LEN);
@@ -301,52 +386,78 @@ String ESPEncrypt::decryptString(const String &cipherText)
         printHex("TAG", tag_ptr, TAG_LEN);
     #endif
 
-    // Cria o contexto
+    // Cria contexto AES-GCM
     mbedtls_gcm_context ctx;
     mbedtls_gcm_init(&ctx);
 
-    // Insere chave criptográfica AES no contexto
-    ret = mbedtls_gcm_setkey(
-        &ctx,
-        MBEDTLS_CIPHER_ID_AES,
-        privateCipherKey,
-        KEY_BITS
-    );
+    // Insere chave criptográfica
+    ret = mbedtls_gcm_setkey( &ctx, MBEDTLS_CIPHER_ID_AES, privateCipherKey, KEY_BITS );
 
-    if (ret != 0) {
-        mbedtls_gcm_free(&ctx); return "";
+    // Verifica se conseguiu inserir chave corretamente
+    if (ret != ENCRYPT_SUCCESS) {
+        free(decoded); free(output);
+        mbedtls_gcm_free(&ctx);
+        return "";
     }
 
-    // decodifica mensagem (cipher) utilizando chave anexada
-    ret = mbedtls_gcm_auth_decrypt(
-        &ctx,
-        cipher_len,
-        nonce_ptr, NONCE_LEN,
-        NULL, 0,                    // AAD (não implementado ainda)
-        tag_ptr, TAG_LEN,
-        cipher_ptr,
-        output
-    );
+    // Inicia stream/fluxo de criptografia
+    ret = mbedtls_gcm_starts( &ctx, MBEDTLS_GCM_DECRYPT, nonce_ptr, NONCE_LEN );
 
+    // Verifica se conseguiu iniciar corretamente o fluxo/stream
+    if (ret != ENCRYPT_SUCCESS) {
+        free(decoded); free(output);
+        mbedtls_gcm_free(&ctx);
+        return "";
+    }
+
+    // Descriptografia do fluxostream -----------------------------------------
+    size_t offset = 0;
+    const size_t CHUNK = MAX_DATA;
+
+    while (offset < cipher_len) 
+    {
+        size_t chunk_len = (cipher_len - offset > CHUNK) ? CHUNK : (cipher_len - offset);
+        size_t out_chunk_len = 0;
+        ret = mbedtls_gcm_update(&ctx,cipher_ptr + offset,chunk_len,output + offset,chunk_len,&out_chunk_len);
+
+        if (ret != 0 || out_chunk_len != chunk_len) {
+            free(decoded); free(output);
+            mbedtls_gcm_free(&ctx);
+            Serial.println("[AES-ERROR] update decrypt falhou");
+            return "";
+        }
+        offset += chunk_len;
+    }
+
+    // Tamanho final (será obtida no finish)
+    size_t final_len = 0;
+
+    // Finaliza fluxo/stream (realiza autenticação da tag nesse processo)
+    ret = mbedtls_gcm_finish( &ctx, NULL, 0, &final_len, tag_ptr, TAG_LEN );
     mbedtls_gcm_free(&ctx);
 
-    if (ret != 0) {
+    // Verifica se tag de autenticação é válida
+    if (ret != ENCRYPT_SUCCESS) {
+        free(decoded); free(output);
         #if CRYPTO_DEBUG
             Serial.println("AUTH FAIL");
         #endif
         return "AUTH_FAIL";
     }
 
-    out_len = cipher_len;
-
     #if CRYPTO_DEBUG
-        printHex("PLAINTEXT", output, out_len);
-        Serial.println("DECRYPTED STRING:");
-        Serial.println(String((char*)output).substring(0, out_len));
+        printHex("PLAINTEXT", output, cipher_len);
     #endif
 
-    // Retorna string em formato plaintext
-    return String((char*)output).substring(0, out_len);
+    // Obtém resultado em string
+    String result = String((char*)output).substring(0, cipher_len);
+
+    // Libera memória alocada
+    free(decoded);
+    free(output);
+
+    // Retorna resultado
+    return result;
 }
 
 

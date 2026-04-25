@@ -4,7 +4,7 @@
 
 ![Node-RED](https://img.shields.io/badge/Node--RED-%238F0000.svg?style=for-the-badge&logo=node-red&logoColor=white)  ![Espressif](https://img.shields.io/badge/espressif-E7352C.svg?style=for-the-badge&logo=espressif&logoColor=white) ![Arduino IDE](https://img.shields.io/badge/Arduino%20IDE-%2300979D.svg?style=for-the-badge&logo=Arduino&logoColor=white)
 
-Por enquanto, o projeto se limita à criptografia AES-GCM (_Advanced Encryption Standard - Galois/Counter Mode_), que utiliza uma chave (128 _bits_), um vetor de inicialização (IV/Nonce de 96 _bits_) e uma tag de autenticação de dados (128 _bits_).
+Por enquanto, o projeto se limita à criptografia **AES-GCM** (_Advanced Encryption Standard - Galois/Counter Mode_), que utiliza uma chave (128 _bits_), um vetor de inicialização (IV/Nonce de 96 _bits_) e uma tag de autenticação de dados (128 _bits_).
 
 A criptografia dos dados é realizada através dos recursos da [API MbedTLS](https://github.com/espressif/esp-idf/blob/master/components/mbedtls/port/include/mbedtls/esp_config.h) da Espressif.
 
@@ -12,7 +12,7 @@ A criptografia dos dados é realizada através dos recursos da [API MbedTLS](htt
 
 ### Biblioteca Arduino IDE
 
-1. Baixe o `.zip` ([clique aqui (ESPEncrypt v1.0.0)](https://github.com/FilipeIhancis/ESPEncrypt-Node/archive/refs/tags/v1.0.0.zip));
+1. Baixe o `.zip` ([clique aqui](https://github.com/FilipeIhancis/ESPEncrypt-Node/archive/refs/heads/main.zip));
 2. Instale a biblioteca adicionando o `.zip` no menu `Sketch > Incluir Biblioteca > Adicionar Biblioteca .zip` da Arduino IDE (ou extraia o `.zip` no diretório de bibliotecas/libraries da Arduino IDE).
 
 <p align="center">
@@ -31,6 +31,7 @@ A criptografia dos dados é realizada através dos recursos da [API MbedTLS](htt
   <img src="imgs/upload-node.png" width="500"">
 </p>
 
+
 #### Terminal Linux (NPM):
 
 Caso esteja utilizando algum sistema Linux, o seguinte procedimento também funciona:
@@ -39,7 +40,7 @@ Caso esteja utilizando algum sistema Linux, o seguinte procedimento também func
 2. Instale o nó através do comando:
 
     ```bash
-    npm install ./node-red-contrib-esp32encrypt-1.0.2.tgz
+    npm install ./node-red-contrib-esp32encrypt-1.x.x.tgz
     ```
 3. Para desinstalar o nó, utilize o comando: ```npm uninstall node-red-contrib-esp32encrypt```.
 
@@ -53,17 +54,17 @@ Acesse o código de exemplo [disponível aqui](examples/Encrypt/Encrypt.ino).
 Basta seguir o passo a passo:
 
 1. Inclua a biblioteca `ESPEncrypt.h`:
-    ```Arduino
+    ```cpp
     #include "ESPEncrypt.h"
     ```
 2. Defina a chave criptográfica AES em hexadecimal (_precisa conter 32 caracteres_) `AES_KEY` e o objeto para implementação da criptografia `crypto` conforme segue a seguir:
-    ```Arduino
+    ```cpp
     #define AES_KEY "7cc7f46dd4a82b10b23388c7eda6379b"
     ESPEncrypt crypto(AES_KEY);
     ```
 3. Utilize o método `crypto.encryptString()` para criptografar uma String qualquer:
 
-    ```Arduino
+    ```cpp
     String msg = "Hello World";
     String cipher = crypto.encryptString(msg);
     ```
@@ -76,7 +77,7 @@ Basta seguir o passo a passo:
 
 2. Utilize o método `crypto.decryptString()` para descriptografar uma String criptografada (`cipher`):
 
-    ```Arduino
+    ```cpp
     String cipher = "xAAAAElqH5ZOIKsfRnIdulCqMsDo72wgqcOSPGxWwMitufNZXYTP";
     String plainText = crypto.decryptString(cipher);
     ```
@@ -102,3 +103,11 @@ Basta seguir o passo a passo:
 ## Extra
 
 * O método **`validation(plainText, cipherText)`** retorna `true` caso o texto decodificado `plainText` seja igual ao texto codificado `cipherText`, e retorna `false` caso o texto codificado não seja igual ao texto descriptografado indicado.
+
+  O trecho de código a seguir exemplifica como utilizar o método:
+
+  ```cpp
+  if(crypto.validation(mensagem, cipher)) {
+    Serial.println("Mensagem criptografada igual à mensagem: " + mensagem);
+  }
+  ```

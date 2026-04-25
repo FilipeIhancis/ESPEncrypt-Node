@@ -1,7 +1,7 @@
 #ifndef ESPEncrypt_H
 #define ESPEncrypt_H
 
-// Bibliotecas & APIs ***************************************
+// Bibliotecas & APIs ******************************************************
 #include <Arduino.h>
 #include <string.h>
 #include "mbedtls/gcm.h"
@@ -9,24 +9,23 @@
 #include <Preferences.h>
 
 // DEFINIÇÕES PADRÃO ********************************************************
-#define KEY_LEN             16      // Bytes da chave AES
-#define NONCE_LEN           12      // Bytes do NONCE (IV)
-#define TAG_LEN             16      // Bytes da Tag Auth.
-#define MAX_DATA            256     // QTD Máxima Bytes AES
-#define KEY_BITS            128     // QTD de bits da Chave GCM
-#define CRYPTO_DEBUG        0       // Ativa ou não debug interno da biblioteca
-#define ENCRYPT_SUCCESS     0       // Padrão de flag sucesso da espressif
-extern Preferences      prefs;      // Contador persistente ESP32
+#define KEY_LEN             16          // Bytes da chave AES
+#define NONCE_LEN           12          // Bytes do NONCE (IV)
+#define TAG_LEN             16          // Bytes da Tag Auth.
+#define MAX_DATA            256         // QTD Máxima Bytes AES
+#define KEY_BITS            128         // QTD de bits da Chave GCM
+#define CRYPTO_DEBUG        0           // Ativa ou não debug interno da biblioteca
+#define ENCRYPT_SUCCESS     0           // Padrão de flag sucesso da espressif
+extern Preferences          prefs;      // Contador persistente ESP32
 
 
-/**
+/*********************************************************************************
  *  @class Classe que implementa criptografia AES-GCM 128 bits
  *  @author Filipe Ihancis (filipeihancist@gmail.com)
- */
-class ESPEncrypt {
-
+ *********************************************************************************/
+class ESPEncrypt 
+{
 public:
-
     /** @brief Construtor */
     ESPEncrypt();
 
@@ -88,11 +87,10 @@ public:
      */
     void printNonce();
 
-
 protected:
 
-    // Variável que armazena a chave privada AES
-    static uint8_t  privateCipherKey[KEY_LEN], nonce[NONCE_LEN];
+    static uint8_t  privateCipherKey[KEY_LEN],      // Variável que armazena a chave privada
+                    nonce[NONCE_LEN];               // Variávek que armazena Nonce/IV único
 
     /**
      *  @brief Gera um NONCE (IV) baseado no contador persistente e números aleatórios

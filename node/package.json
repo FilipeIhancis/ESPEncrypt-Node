@@ -1,0 +1,11 @@
+{
+  "name": "node-red-contrib-esp32encrypt",
+  "version": "1.0.0",
+  "description": "Decrypt AES-GCM Integrado ESP32 e Node-RED",
+  "main": "espencrypt.js",
+  "node-red": {
+    "nodes": {
+      "lite-aes-gcm-decrypt": "espencrypt.js"
+    }
+  }
+}
